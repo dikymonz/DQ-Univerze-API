@@ -7,7 +7,7 @@ exports.createShopItem = async (req, res) => {
     const { name, category, price, description, item_url } = req.body;
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
-    const query = `INSERT INTO shop_items (name, category, price, description, image_url, item_url) VALUES (?, ?, ?, ?, ?, ?)`;
+    const query = `INSERT INTO shop_items (name, category, price, description, image_url, item_url) VALUES ($1, $2, $3, $4, $5, $6)`;
     await db.query(query, [
       name, 
       category, 
@@ -29,17 +29,17 @@ exports.updateShopItem = async (req, res) => {
     const { id } = req.params;
     const { name, category, price, description, item_url } = req.body;
 
-    let updateQuery = `UPDATE shop_items SET name = ?, category = ?, price = ?, description = ?, item_url = ?`;
+    let updateQuery = `UPDATE shop_items SET name = $1, category = $2, price = $3, description = $4, item_url = $5`;
     let queryParams = [name, category, price, description, item_url || '#'];
 
     if (req.file) {
       const imageUrl = `/uploads/${req.file.filename}`;
-      updateQuery += `, image_url = ?`;
       queryParams.push(imageUrl);
+      updateQuery += `, image_url = $${queryParams.length}`;
     }
 
-    updateQuery += ` WHERE id = ?`;
     queryParams.push(id);
+    updateQuery += ` WHERE id = $${queryParams.length}`;
 
     await db.query(updateQuery, queryParams);
     res.json({ success: true, message: 'Produk berhasil diperbarui!' });
@@ -52,7 +52,7 @@ exports.updateShopItem = async (req, res) => {
 exports.deleteShopItem = async (req, res) => {
   try {
     const { id } = req.params;
-    await db.query('DELETE FROM shop_items WHERE id = ?', [id]);
+    await db.query('DELETE FROM shop_items WHERE id = $1', [id]);
     res.json({ success: true, message: 'Produk berhasil dihapus!' });
   } catch (err) {
     console.error('Delete Shop Item Error:', err);
@@ -68,7 +68,7 @@ exports.createTournament = async (req, res) => {
     const { title, game, prize, description, date } = req.body;
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
-    const query = `INSERT INTO tournaments (title, game, prize, description, date, image_url) VALUES (?, ?, ?, ?, ?, ?)`;
+    const query = `INSERT INTO tournaments (title, game, prize, description, date, image_url) VALUES ($1, $2, $3, $4, $5, $6)`;
     await db.query(query, [title, game, prize, description || null, date || null, imageUrl]);
 
     res.json({ success: true, message: 'Turnamen berhasil ditambahkan!' });
@@ -81,7 +81,7 @@ exports.createTournament = async (req, res) => {
 exports.deleteTournament = async (req, res) => {
   try {
     const { id } = req.params;
-    await db.query('DELETE FROM tournaments WHERE id = ?', [id]);
+    await db.query('DELETE FROM tournaments WHERE id = $1', [id]);
     res.json({ success: true, message: 'Turnamen berhasil dihapus!' });
   } catch (err) {
     console.error('Delete Tournament Error:', err);
@@ -97,7 +97,7 @@ exports.createJourney = async (req, res) => {
     const { title, description, date } = req.body;
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
-    const query = `INSERT INTO journeys (title, description, date, image_url) VALUES (?, ?, ?, ?)`;
+    const query = `INSERT INTO journeys (title, description, date, image_url) VALUES ($1, $2, $3, $4)`;
     await db.query(query, [title, description || null, date || null, imageUrl]);
 
     res.json({ success: true, message: 'Journey berhasil ditambahkan!' });
@@ -110,7 +110,7 @@ exports.createJourney = async (req, res) => {
 exports.deleteJourney = async (req, res) => {
   try {
     const { id } = req.params;
-    await db.query('DELETE FROM journeys WHERE id = ?', [id]);
+    await db.query('DELETE FROM journeys WHERE id = $1', [id]);
     res.json({ success: true, message: 'Journey berhasil dihapus!' });
   } catch (err) {
     console.error('Delete Journey Error:', err);
