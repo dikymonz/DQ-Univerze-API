@@ -6,7 +6,8 @@ const db = require('../config/db');
 // GET /api/donators - Ambil Daftar Top Donatur + Data Profil Discord
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM top_donators ORDER BY amount DESC');
+    const result = await db.query('SELECT * FROM top_donators ORDER BY amount DESC');
+    const rows = result.rows;
 
     const enrichedDonators = await Promise.all(
       rows.map(async (donator) => {
@@ -66,8 +67,9 @@ router.post('/', async (req, res) => {
   try {
     await db.query(
       `INSERT INTO top_donators (discord_id, amount) 
-       VALUES (?, ?) 
-       ON DUPLICATE KEY UPDATE amount = VALUES(amount)`,
+       VALUES ($1, $2) 
+       ON CONFLICT (discord_id) 
+       DO UPDATE SET amount = EXCLUDED.amount`,
       [discord_id, amount]
     );
 
@@ -85,7 +87,7 @@ router.put('/:id', async (req, res) => {
 
   try {
     await db.query(
-      'UPDATE top_donators SET discord_id = ?, amount = ? WHERE id = ?',
+      'UPDATE top_donators SET discord_id = $1, amount = $2 WHERE id = $3',
       [discord_id, amount, id]
     );
 
@@ -101,7 +103,7 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    await db.query('DELETE FROM top_donators WHERE id = ?', [id]);
+    await db.query('DELETE FROM top_donators WHERE id = $1', [id]);
     res.json({ success: true, message: 'Data donatur berhasil dihapus!' });
   } catch (err) {
     console.error('Gagal menghapus donatur:', err);
