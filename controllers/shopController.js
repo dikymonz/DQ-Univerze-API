@@ -4,13 +4,8 @@ const db = require('../config/db');
 
 exports.createShopItem = async (req, res) => {
   try {
-    const { name, category, price, description, item_url, image_url } = req.body;
-    
-    // Prioritaskan file upload jika ada (untuk development lokal), jika tidak gunakan image_url dari link
-    let finalImageUrl = image_url || null;
-    if (req.file) {
-      finalImageUrl = `/uploads/${req.file.filename}`;
-    }
+    const { name, category, price, description, item_url } = req.body;
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
     const query = `INSERT INTO shop_items (name, category, price, description, image_url, item_url) VALUES ($1, $2, $3, $4, $5, $6)`;
     await db.query(query, [
@@ -18,21 +13,21 @@ exports.createShopItem = async (req, res) => {
       category, 
       price, 
       description || null, 
-      finalImageUrl, 
+      imageUrl, 
       item_url || '#'
     ]);
 
     res.json({ success: true, message: 'Produk berhasil ditambahkan!' });
   } catch (err) {
     console.error('Create Shop Item Error:', err);
-    res.status(500).json({ success: false, message: 'Gagal menambahkan produk: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal menambahkan produk' });
   }
 };
 
 exports.updateShopItem = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, category, price, description, item_url, image_url } = req.body;
+    const { name, category, price, description, item_url } = req.body;
 
     let updateQuery = `UPDATE shop_items SET name = $1, category = $2, price = $3, description = $4, item_url = $5`;
     let queryParams = [name, category, price, description, item_url || '#'];
@@ -40,9 +35,6 @@ exports.updateShopItem = async (req, res) => {
     if (req.file) {
       const imageUrl = `/uploads/${req.file.filename}`;
       queryParams.push(imageUrl);
-      updateQuery += `, image_url = $${queryParams.length}`;
-    } else if (image_url) {
-      queryParams.push(image_url);
       updateQuery += `, image_url = $${queryParams.length}`;
     }
 
@@ -53,7 +45,7 @@ exports.updateShopItem = async (req, res) => {
     res.json({ success: true, message: 'Produk berhasil diperbarui!' });
   } catch (err) {
     console.error('Update Shop Item Error:', err);
-    res.status(500).json({ success: false, message: 'Gagal memperbarui produk: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal memperbarui produk' });
   }
 };
 
@@ -73,14 +65,11 @@ exports.deleteShopItem = async (req, res) => {
 
 exports.createTournament = async (req, res) => {
   try {
-    const { title, game, prize, description, date, image_url } = req.body;
-    let finalImageUrl = image_url || null;
-    if (req.file) {
-      finalImageUrl = `/uploads/${req.file.filename}`;
-    }
+    const { title, game, prize, description, date } = req.body;
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
     const query = `INSERT INTO tournaments (title, game, prize, description, date, image_url) VALUES ($1, $2, $3, $4, $5, $6)`;
-    await db.query(query, [title, game, prize, description || null, date || null, finalImageUrl]);
+    await db.query(query, [title, game, prize, description || null, date || null, imageUrl]);
 
     res.json({ success: true, message: 'Turnamen berhasil ditambahkan!' });
   } catch (err) {
@@ -105,14 +94,11 @@ exports.deleteTournament = async (req, res) => {
 
 exports.createJourney = async (req, res) => {
   try {
-    const { title, description, date, image_url } = req.body;
-    let finalImageUrl = image_url || null;
-    if (req.file) {
-      finalImageUrl = `/uploads/${req.file.filename}`;
-    }
+    const { title, description, date } = req.body;
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
     const query = `INSERT INTO journeys (title, description, date, image_url) VALUES ($1, $2, $3, $4)`;
-    await db.query(query, [title, description || null, date || null, finalImageUrl]);
+    await db.query(query, [title, description || null, date || null, imageUrl]);
 
     res.json({ success: true, message: 'Journey berhasil ditambahkan!' });
   } catch (err) {
