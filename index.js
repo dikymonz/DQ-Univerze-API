@@ -25,7 +25,9 @@ if (!fs.existsSync(uploadsDir)) {
 // Konfigurasi CORS yang menggabungkan localhost dan Vercel secara aman
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://dq-universe-api.vercel.app', // Dihapus garis miring (slash) di akhir agar pencocokan string akurat
+  'https://dq-universe-api.vercel.app',
+  'https://dq-universe-api-git-main-dikymonzs-projects.vercel.app/p',
+   // Dihapus garis miring (slash) di akhir agar pencocokan string akurat
   /\.vercel\.app$/
 ];
 
