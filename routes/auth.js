@@ -4,19 +4,23 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const router = express.Router();
 
-// Redirect ke Discord Login
+// ==========================================
+// 1. REDIRECT KE DISCORD LOGIN OAUTH2
+// ==========================================
 router.get('/discord', (req, res) => {
     const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.REDIRECT_URI)}&response_type=code&scope=identify%20email%20guilds.join`;
     res.redirect(discordAuthUrl);
 });
 
-// Callback dari Discord
+// ==========================================
+// 2. CALLBACK DARI DISCORD OAUTH2
+// ==========================================
 router.get('/discord/callback', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.status(400).send('Code not provided');
 
     try {
-        // 1. Exchange Code dengan Access Token
+        // Exchange Code dengan Access Token
         const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
             client_id: process.env.CLIENT_ID,
             client_secret: process.env.CLIENT_SECRET,
@@ -29,14 +33,14 @@ router.get('/discord/callback', async (req, res) => {
 
         const accessToken = tokenResponse.data.access_token;
 
-        // 2. Fetch Data User dari Discord
+        // Fetch Data User dari Discord
         const userResponse = await axios.get('https://discord.com/api/users/@me', {
             headers: { Authorization: `Bearer ${accessToken}` }
         });
 
         const { id, username, avatar, email } = userResponse.data;
 
-        // 3. AUTO-JOIN SERVER DISCORD
+        // AUTO-JOIN SERVER DISCORD
         try {
             await axios.put(
                 `https://discord.com/api/v10/guilds/${process.env.DISCORD_GUILD_ID}/members/${id}`,
@@ -53,7 +57,7 @@ router.get('/discord/callback', async (req, res) => {
             console.error('[AUTO-JOIN] Gagal memasukkan user ke server:', joinErr.response?.data || joinErr.message);
         }
 
-        // 4. Upsert User ke Database Supabase (PostgreSQL) dengan kolom role
+        // Upsert User ke Database Supabase (PostgreSQL)
         await db.query(
             `INSERT INTO users (id, username, avatar, email, role) 
              VALUES ($1, $2, $3, $4, 'member') 
@@ -62,7 +66,7 @@ router.get('/discord/callback', async (req, res) => {
             [id, username, avatar, email]
         );
 
-        // 5. Cek Role Admin di Server Discord
+        // Cek Role Admin di Server Discord
         let isAdmin = false;
         try {
             const guildMemberResponse = await axios.get(
@@ -81,18 +85,66 @@ router.get('/discord/callback', async (req, res) => {
             isAdmin = false;
         }
 
-        // 6. Buat JWT Token
+        // Buat JWT Token
         const token = jwt.sign(
             { id, username, avatar, isAdmin }, 
             process.env.JWT_SECRET || 'secretkey', 
             { expiresIn: '7d' }
         );
 
-        // 7. Redirect ke Frontend
+        // Redirect ke Frontend
         res.redirect(`${process.env.FRONTEND_URL}/login-success?token=${token}`);
     } catch (error) {
         console.error('Authentication Error:', error.response?.data || error.message);
         res.status(500).send('Authentication Failed');
+    }
+});
+
+// ==========================================
+// 3. ENDPOINT LIVE CHAT: AMBIL PESAN CHANNEL DISCORD
+// ==========================================
+router.get('/channel/:channelId/messages', async (req, res) => {
+    try {
+        const { channelId } = req.params;
+
+        // Ambil history pesan dari Discord API menggunakan Bot Token
+        const response = await axios.get(
+            `https://discord.com/api/v10/channels/${channelId}/messages?limit=10`,
+            {
+                headers: {
+                    Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`
+                }
+            }
+        );
+
+        // Format data pesan agar siap dibaca oleh komponen frontend
+        const messages = response.data.map(msg => {
+            let attachmentUrl = null;
+            if (msg.attachments && msg.attachments.length > 0) {
+                attachmentUrl = msg.attachments[0].url;
+            }
+
+            const timeFormatted = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            let avatarUrl = 'https://cdn.discordapp.com/embed/avatars/0.png';
+            if (msg.author.avatar) {
+                avatarUrl = `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png`;
+            }
+
+            return {
+                id: msg.id,
+                user: msg.author.global_name || msg.author.username,
+                avatar: avatarUrl,
+                content: msg.content,
+                time: timeFormatted,
+                attachment: attachmentUrl
+            };
+        });
+
+        res.json(messages);
+    } catch (err) {
+        console.error('Gagal mengambil pesan channel Discord:', err.response?.data || err.message);
+        res.status(500).json({ success: false, message: 'Gagal mengambil pesan dari channel Discord' });
     }
 });
 
