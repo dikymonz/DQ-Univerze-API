@@ -26,7 +26,7 @@ if (!fs.existsSync(uploadsDir)) {
 const allowedOrigins = [
   'http://localhost:5173',
   'https://dq-universe-api.vercel.app',
-  'https://dq-universe-api-git-main-dikymonzs-projects.vercel.app/p',
+  'https://dq-universe-api-git-main-dikymonzs-projects.vercel.app/',
    // Dihapus garis miring (slash) di akhir agar pencocokan string akurat
   /\.vercel\.app$/
 ];
