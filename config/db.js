@@ -1,7 +1,6 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Paksa koneksi Supabase PostgreSQL untuk Vercel Serverless
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
