@@ -53,12 +53,13 @@ router.get('/discord/callback', async (req, res) => {
             console.error('[AUTO-JOIN] Gagal memasukkan user ke server:', joinErr.response?.data || joinErr.message);
         }
 
-        // 4. Upsert User ke Database MySQL
+        // 4. Upsert User ke Database Supabase (PostgreSQL)
         await db.query(
             `INSERT INTO users (id, username, avatar, email) 
-             VALUES (?, ?, ?, ?) 
-             ON DUPLICATE KEY UPDATE username=?, avatar=?, email=?`,
-            [id, username, avatar, email, username, avatar, email]
+             VALUES ($1, $2, $3, $4) 
+             ON CONFLICT (id) 
+             DO UPDATE SET username = EXCLUDED.username, avatar = EXCLUDED.avatar, email = EXCLUDED.email`,
+            [id, username, avatar, email]
         );
 
         // 5. Cek Role Admin di Server Discord
