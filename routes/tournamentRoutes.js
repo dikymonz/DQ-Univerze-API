@@ -23,8 +23,8 @@ const upload = multer({ storage });
 // GET /api/tournaments - Ambil Semua Turnamen
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM tournaments ORDER BY start_date ASC');
-    res.json({ success: true, data: rows });
+    const result = await db.query('SELECT * FROM tournaments ORDER BY start_date ASC');
+    res.json({ success: true, data: result.rows });
   } catch (err) {
     console.error('Error fetching tournaments:', err);
     res.status(500).json({ success: false, message: 'Gagal mengambil data turnamen' });
@@ -35,11 +35,11 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await db.query('SELECT * FROM tournaments WHERE id = ?', [id]);
-    if (rows.length === 0) {
+    const result = await db.query('SELECT * FROM tournaments WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Turnamen tidak ditemukan' });
     }
-    res.json({ success: true, data: rows[0] });
+    res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     console.error('Error fetching tournament by ID:', err);
     res.status(500).json({ success: false, message: 'Gagal mengambil detail turnamen' });
@@ -51,15 +51,12 @@ router.post('/', upload.array('images', 5), async (req, res) => {
   const { title, game_name, prize_pool, start_date, rules, status, externalUrl } = req.body;
 
   try {
-    // Path gambar baru dari upload file Multer
     const newImages = req.files ? req.files.map((file) => `/uploads/${file.filename}`) : [];
-    
-    // Jika user menginputkan link external (YouTube/TikTok)
     const videoUrl = externalUrl || (newImages.length > 0 ? newImages[0] : null);
 
     const query = `
       INSERT INTO tournaments (title, game_name, prize_pool, start_date, rules, status, video_url, images)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `;
 
     await db.query(query, [
@@ -86,23 +83,21 @@ router.put('/:id', upload.array('images', 5), async (req, res) => {
   const { title, game_name, prize_pool, start_date, rules, status, externalUrl, existingVideoUrl } = req.body;
 
   try {
-    // Ambil data lama untuk pengecekan gambar
-    const [existingRows] = await db.query('SELECT images, video_url FROM tournaments WHERE id = ?', [id]);
-    if (existingRows.length === 0) {
+    const existingResult = await db.query('SELECT images, video_url FROM tournaments WHERE id = $1', [id]);
+    if (existingResult.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Turnamen tidak ditemukan' });
     }
 
+    const existingTournament = existingResult.rows[0];
     let finalImages = [];
     
-    // Jika ada file gambar baru yang diunggah
     if (req.files && req.files.length > 0) {
       finalImages = req.files.map((file) => `/uploads/${file.filename}`);
 
-      // Hapus file gambar lama jika diganti baru
-      if (existingRows[0].images) {
-        const oldImages = typeof existingRows[0].images === 'string' 
-          ? JSON.parse(existingRows[0].images) 
-          : existingRows[0].images;
+      if (existingTournament.images) {
+        const oldImages = typeof existingTournament.images === 'string' 
+          ? JSON.parse(existingTournament.images) 
+          : existingTournament.images;
 
         oldImages.forEach((imgRelPath) => {
           const fullPath = path.join(__dirname, '..', imgRelPath);
@@ -110,9 +105,8 @@ router.put('/:id', upload.array('images', 5), async (req, res) => {
         });
       }
     } else {
-      // Pertahankan gambar lama
-      finalImages = existingRows[0].images 
-        ? (typeof existingRows[0].images === 'string' ? JSON.parse(existingRows[0].images) : existingRows[0].images)
+      finalImages = existingTournament.images 
+        ? (typeof existingTournament.images === 'string' ? JSON.parse(existingTournament.images) : existingTournament.images)
         : [];
     }
 
@@ -120,8 +114,8 @@ router.put('/:id', upload.array('images', 5), async (req, res) => {
 
     const query = `
       UPDATE tournaments 
-      SET title = ?, game_name = ?, prize_pool = ?, start_date = ?, rules = ?, status = ?, video_url = ?, images = ?
-      WHERE id = ?
+      SET title = $1, game_name = $2, prize_pool = $3, start_date = $4, rules = $5, status = $6, video_url = $7, images = $8
+      WHERE id = $9
     `;
 
     await db.query(query, [
@@ -148,25 +142,24 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [rows] = await db.query('SELECT images, video_url FROM tournaments WHERE id = ?', [id]);
-    if (rows.length > 0) {
-      // 1. Hapus file-file gambar carousel
-      if (rows[0].images) {
-        const images = typeof rows[0].images === 'string' ? JSON.parse(rows[0].images) : rows[0].images;
+    const existingResult = await db.query('SELECT images, video_url FROM tournaments WHERE id = $1', [id]);
+    if (existingResult.rows.length > 0) {
+      const tournament = existingResult.rows[0];
+      if (tournament.images) {
+        const images = typeof tournament.images === 'string' ? JSON.parse(tournament.images) : tournament.images;
         images.forEach((imgRelPath) => {
           const fullPath = path.join(__dirname, '..', imgRelPath);
           if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
         });
       }
 
-      // 2. Hapus video_url jika berupa file lokal di /uploads/
-      if (rows[0].video_url && rows[0].video_url.startsWith('/uploads/')) {
-        const videoPath = path.join(__dirname, '..', rows[0].video_url);
+      if (tournament.video_url && tournament.video_url.startsWith('/uploads/')) {
+        const videoPath = path.join(__dirname, '..', tournament.video_url);
         if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
       }
     }
 
-    await db.query('DELETE FROM tournaments WHERE id = ?', [id]);
+    await db.query('DELETE FROM tournaments WHERE id = $1', [id]);
     res.json({ success: true, message: 'Turnamen dan media berhasil dihapus!' });
   } catch (err) {
     console.error('Error delete tournament:', err);
