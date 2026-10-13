@@ -53,10 +53,10 @@ router.get('/discord/callback', async (req, res) => {
             console.error('[AUTO-JOIN] Gagal memasukkan user ke server:', joinErr.response?.data || joinErr.message);
         }
 
-        // 4. Upsert User ke Database Supabase (PostgreSQL)
+        // 4. Upsert User ke Database Supabase (PostgreSQL) dengan kolom role
         await db.query(
-            `INSERT INTO users (id, username, avatar, email) 
-             VALUES ($1, $2, $3, $4) 
+            `INSERT INTO users (id, username, avatar, email, role) 
+             VALUES ($1, $2, $3, $4, 'member') 
              ON CONFLICT (id) 
              DO UPDATE SET username = EXCLUDED.username, avatar = EXCLUDED.avatar, email = EXCLUDED.email`,
             [id, username, avatar, email]
